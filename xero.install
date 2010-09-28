@@ -1,0 +1,55 @@
+<?php
+//$Id$
+/**
+ * @file
+ */
+
+
+/**
+ * Implementation of hook_requirements().
+ */
+function xero_requirements($phase) {
+  $t = get_t();
+
+  $requirements = array(
+    'xero_lib' => array(
+      'title' => $t('Xero library'),
+      'value' => $t('The PHP-Xero library is installed correctly.'),
+      'severity' => REQUIREMENT_OK,
+    ),
+  );
+
+  $incpath = drupal_get_path('module', 'xero') . '/include/';
+
+  if (!drupal_verify_install_file($incpath . 'xero.php', FILE_EXIST, 'file')) {
+    //Note: I don't think I can use l() or theme() here
+    $requirements['xero_lib']['value'] = $t('You must install the <a href="http://github.com/thinktree/PHP-Xero" target="new">PHP-Xero library</a> in the xero module include/ directory before proceeding.');
+    $requirements['xero_lib']['severity'] = REQUIREMENT_ERROR;
+  }
+
+  if ($phase == 'runtime') {
+    $requirements['xero_cert'] = array(
+      'title' => $t('Xero cert'),
+      'value' => $t('Found your Xero certificate and key in the configured location.'),
+      'severity' => REQUIREMENT_OK
+    );
+
+    $certpath = variable_get('xero_cert_path', '');
+    $keypath = variable_get('xero_key_path', '');
+
+    if (!drupal_verify_install_file($certpath, FILE_EXIST, 'file') || !drupal_verify_install_file($keypath, FILE_EXIST, 'file')) {
+      $requirements['xero_cert']['value'] = $t('You must !configure the Xero module with the location of your Xero certificate!', array('!configure' => l($t('configure'), 'admin/settings/xero')));
+      $requirements['xero_cert']['severity'] = REQUIREMENT_ERROR;
+    }
+  }
+
+  if (module_exists('oauth_common')) {
+    $requirements['xero_oauth'] = array(
+      'title' => $t('Xero oauth'),
+      'value' => $t('The xero module is currently incompatible with the oauth module because both modules include the same codebase. Please uninstall the oauth module before continuing.'),
+      'severity' => REQUIREMENT_WARNING,
+    );
+  }
+
+  return $requirements;
+}

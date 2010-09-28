@@ -1,0 +1,343 @@
+<?php
+//$Id$
+/**
+ * @file
+ *   Xero API module
+ *   Implements the PHP-Xero Library in Drupal to allow queries to
+ *   xero.com
+ *
+ *   Curently supported:
+ *
+ *   1. GET Query for any Xero entity such as Contacts, Invoices, Payments, etc...
+ *   2. POST Query for Invoices.
+ *   3. PUT Query for Payments.
+ *   4. Caching of Xero entities.
+ *   5. Form generation for Contacts, Invoices, and Accounts.
+ *
+ */
+
+
+/**
+ * Implementation of hook_perm().
+ *
+ * These are basic permissions. It is up to individual module developers
+ * to add more complex permissions in their modules. This may change in
+ * the future.
+ */
+function xero_perm() {
+  return array('access xero', 'post to xero');
+}
+
+/**
+ * Implementation of hook_theme().
+ * @param $existing
+ * @param $type
+ * @param $theme
+ * @param $path
+ * @return array of theme callbacks
+ */
+function xero_theme($existing, $type, $theme, $path) {
+  return array(
+    'xero_contact' => array(
+      'arguments' => array($contact = NULL),
+      'template' => 'xero-contact',
+      'file' => 'xero.theme.inc',
+      'path' => drupal_get_path('module', 'xero') . '/theme',
+    ),
+    'xero_invoice' => array(
+      'arguments' => array($invoice = NULL),
+      'template' => 'xero-invoice',
+      'file' => 'xero.theme.inc',
+      'path' => drupal_get_path('module', 'xero') . '/theme',
+    ),
+    'xero_creditnote' => array(
+      'arguments' => array($creditnote = NULL),
+      'template' => 'xero-creditnote',
+      'file' => 'xero.theme.inc',
+      'path' => drupal_get_path('module', 'xero') . '/theme',
+    ),
+    'xero_addresses' => array(
+      'arguments' => array($addresses = NULL),
+      'file' => 'xero.theme.inc',
+      'path' => drupal_get_path('module', 'xero') . '/theme',
+    ),
+    'xero_lineitems' => array(
+      'arguments' => array($items = NULL, $subtotal = NULL, $tax = NULL, $total = NULL),
+      'file' => 'xero.theme.inc',
+      'path' => drupal_get_path('module', 'xero') . '/theme',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function xero_menu() {
+  $items = array();
+
+  $items['xero/autocomplete/Contacts'] = array(
+    'title' => 'Xero Autocomplete Contacts',
+    'page callback' => 'xero_autocomplete_contacts',
+    'page arguments' => array(3),
+    'access arguments' => array('access xero'),
+    'file' => 'xero.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['xero/autocomplete/Invoices'] = array(
+    'title' => 'Xero Autocomplete Invoices',
+    'page callback' => 'xero_autocomplete_invoices',
+    'page arguments' => array(3),
+    'access arguments' => array('access xero'),
+    'file' => 'xero.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/settings/xero'] = array(
+    'title' => 'Xero Configuration',
+    'description' => 'Configure the xero module for your organization.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('xero_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'xero.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Load PHP-Xero code. Only used by xero_query(). You don't need to
+ * implement this unless you're making manual queries to xero outside
+ * of xero_query().
+ *
+ * @return object A PHP-Xero object or NULL.
+ */
+function xero_php_load() {
+  module_load_include('php', 'xero', 'include/xero');
+
+  $key = variable_get('xero_consumer_key', '');
+  $secret = variable_get('xero_consumer_secret', '');
+  $cert = variable_get('xero_cert_path', '');
+  $cert_key = variable_get('xero_key_path', '');
+
+  return new Xero($key, $secret, $cert, $cert_key, 'json');
+}
+
+/**
+ * Get or post an object type to xero.
+ *
+ * @param $type two possible values: get or post. put is not supported.
+ * @param $action the type of action we're doing: Invoices, Contacts, etc...
+ * @param $id an optional id of the xero object such as contactid, invoiceid, etc...
+ * @param $after an optional ModifiedAfter parameter for a get query.
+ * @param $items an optional array of items to post such as contacts, invoices, etc...
+ * @return returns a result array from the PHP-Xero containing status & the data posted
+ *         or returns NULL if there was an error before querying.
+ *
+ * Example:
+ * 
+ *   //Return all contacts for your xero account.
+ *   $result = xero_query('get', 'Contacts');
+ *
+ *   //Post a new contact.
+ *   $contacts = array('Contact' => array('Name' => 'New Contact'));
+ *   $result = xero_query('post', 'Contacts', FALSE, FALSE, $contacts);
+ *
+ *   //Query a new contact by it's Name element, not the ContactID.
+ *   $result = xero_query('get', 'Contacts', FALSE, FALSE, array('Name' => 'New Contact'));
+ *
+ *   See PHP-Xero and developer.xero.com for more information.
+ *
+ */
+function xero_query($type = 'get', $action, $id = FALSE, $after = FALSE, $items = array()) {
+  $xero = xero_php_load();
+
+  if (!is_object($xero)) {
+    xero_error(0, '', 'Error trying to make a xero connection object.');
+    return NULL;
+  }
+
+  if ($type == 'get') {
+    if (!$id && !$after && empty($items)) {
+      $result = $xero->$action;
+    }
+    else {
+      $result = $xero->$action($id, $after, $items);
+    }
+  }
+  elseif ($type == 'post') {
+    $result = $xero->$action($items);
+  }
+  else {
+    xero_error(0, '', t('%type is not a valid type of get or post.', array('%type' => $type)));
+    return NULL;
+  }
+
+  if (isset($result['ErrorNumber'])) {
+    xero_error($result['ErrorNumber'], $result['Type'], $result['Message']);
+  }
+
+  return $result;
+}
+
+/**
+ * Evaluate error messages and send appropriate drupal status messages.
+ * @param $code Optional Xero error code.
+ * @param $type Optional Xero error type.
+ * @param $message Xero error message.
+ */
+function xero_error($code = 0, $type = '', $message) {
+  $error_code = (!empty($type)) ? $code . ' ' . $type : $code;
+  $formatted = t('<b>Error</b>: %code: %message', array('%code' => $error_code, '%message' => $message ));
+  drupal_set_message($formatted, 'error');
+  watchdog('xero', $formatted, NULL, WATCHDOG_CRITICAL, NULL);
+}
+
+/**
+ * Form element helper for actions using the Xero Module API.
+ * @param $action the action to be taken (Contacts, Invoices)
+ * @return $element a Drupal form element. 
+ *
+ * Example:
+ *   $form['blah'] = xero_form_helper('Contacts', $form['blah']['#default_value']);
+ */
+function xero_form_helper($type = 'Contacts', $default = '') {
+  $key = strtolower($type);
+  $element[$key] = array();
+  $element[$key]['#title'] = $type;
+  $element[$key]['#default_value'] = $default;
+
+  switch ($type) {
+    case 'Contacts':
+      $element[$key]['#type'] = 'textfield';
+      $element[$key]['#autocomplete_path'] = 'xero/autocomplete/Contacts';
+      break;
+    case 'ContactStatus':
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#title'] = t('Contact Status');
+      $element[$key]['#options'] = array('ACTIVE' => t('Active'));
+      break;
+    case 'PhoneType':
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#title'] = t('Phone Type');
+      $element[$key]['#options'] = array(
+        'DEFAULT' => t('Default'),
+        'DDI' => t('DDI'),
+        'MOBILE' => t('Mobile'),
+        'FAX' => t('Fax'),
+      );
+      break;
+    case 'AddressType':
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#title'] = t('Address Type');
+      $element[$key]['#options'] = array(
+        'POBOX' => t('P.O. Box'),
+        'STREET' => t('Street'),
+      );
+      break;
+    case 'Invoices':
+      $element[$key]['#type'] = 'textfield';
+      $element[$key]['#autocomplete_path'] = 'xero/autocomplete/Invoices';
+      break;
+    case 'InvoiceType':
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#title'] = t('Invoice Type');
+      $element[$key]['#description'] = t('If this is a new invoice you may select when the due date for the invoice will be.');
+      $element[$key]['#options'] = array('ACCREC' => t('Accounts Receivable'), 'ACCPAY' => t('Accounts Payable'));
+      break;
+    case 'InvoiceStatus':
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#title'] = t('Invoice Status');
+      $element[$key]['#description'] = t('You may post this invoice as a draft or as submitted.');
+      $element[$key]['#options'] = array(
+        'DRAFT' => t('Draft'),
+        'SUBMITTED' => t('Submitted'),
+      );
+      break;
+    case 'LineAmountTypes':
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#title'] = t('Line Amount Type');
+      $element[$key]['#options'] = array(
+        'Exclusive' => t('Exclusive'),
+        'Inclusive' => t('Inclusive'),
+        'NoTax' => t('No Tax'),
+      );
+      break;
+    case 'Accounts':
+      $accounts = xero_get_cache('Accounts');
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#options'] = array();
+
+      foreach ($accounts['Account'] as $item) {
+        $name = $item['Code'];
+        $element[$key]['#options'][$name] = check_plain($item['Name']);
+      }
+      break;
+    case 'Net':
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#title'] = t('Net Payable');
+      $element[$key]['#options'] = array(
+        '+0 days' => t('Immediate'),
+        '+1 week' => t('Net 7'),
+        '+15 days' => t('Net 15'),
+        '+30 days' => t('Net 30'),
+        '+60 days' => t('Net 60'),
+        '+90 days' => t('Net 90'),
+        '+6 months' => t('6 months'),
+        '+1 year' => t('1 year')
+      );
+      break;
+    case 'Curriences':
+      $currencies = xero_get_cache('Curriences');
+      $element[$key]['#type'] = 'select';
+      $element[$key]['#title'] = t('Currency');
+      $element[$key]['#options'] = array();
+
+      foreach ($currencies['Currency'] as $item) {
+        $code = $item['Code'];
+        $element[$key]['#options'][$code] = check_plain($item['Description']);
+      }
+      break;
+    case 'Date':
+      //Modules not using date_api will need to format the date field appropriately.
+      $element[$key]['#type'] = (module_exists('date_api')) ? 'date_select' : 'date';
+      $element[$key]['#date_format'] = 'Y-m-d';
+      $element[$key]['#default_value'] = date();
+      $element[$key]['#element_validate'] = (module_exists('date_api')) ? array() : 'xero_date_element_validate';
+    default:
+      $element[$key]['#type'] = 'textfield';
+      $title = ucwords(str_replace('_', ' ', $type));
+      $element[$key]['#title'] = t('@title', array('@title' => $title));
+  }
+
+  return $element[$key];
+}
+
+/**
+ * Get data from cache or refresh and set cache. You can cache any
+ * type of data that you can query xero by. The cache identifier is
+ * $type, but lower case.
+ *
+ * @param $type the type of cache to get. Defaults to Contacts
+ * @return $cached array of cached data
+ */
+function xero_get_cache($type = 'Contacts') {
+  $cached = cache_get('xero_' . strtolower($type), 'cache');
+
+  if (!is_numeric($cached)) {
+    return $cached->data;
+  }
+
+  $result = xero_query('get', $type, false, false, array());
+  if ($result == NULL) {
+    return NULL;
+  }
+
+  $cached = $result[$type];
+
+  cache_set('xero_' . strtolower($type), $cached, 'cache', CACHE_TEMPORARY, NULL);
+
+  return $cached;
+}
+

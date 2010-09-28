@@ -1,0 +1,146 @@
+$Id$
+
+Xero API Examples
+
+This will show you how you can use the methods provided by this module
+to interface your Drupal site with xero.com. You will need to be
+familiar with the xero.com API (http://developer.xero.com).
+
+
+I Queries
+
+  The xero_query method makes the following queries to xero.com: GET and POST.
+
+  1 Retrieve Data
+
+    Retrieve all contacts in your organization:
+
+    <?php
+      $result = xero_query('get', 'Contacts', FALSE, FALSE, array());
+    ?>
+
+    The first argument is straightforward.
+    The second argument is the action we will be doing such as Contacts,
+    Accounts, Invoices, Payments, etc...
+    The third argument is an optional identifier to narrow down the query as
+    seen in the xero.com developer documentation linked above.
+    The fourth argument is an optional UTC timestamp: YYYY-MM-DDT00:00:00
+    The fifth argument is an optional array of key=value filters corresponding
+    to elements in object we're querying.
+
+    The return value has three possible scenarios:
+      1. NULL - Unable to even query xero.
+      2. Array - An array with Errors returned from xero.com
+      3. Array - An array of results.
+
+    Thus the following query would narrow down the result to suppliers
+    who have been modified after Midnight September 5th, 2010.
+
+    <?php
+      $result = xero_query('get', 'Contacts', FALSE, '2010-09-05T00:00:00', array('IsSupplier' => 'TRUE'));
+    ?>
+
+    You could loop through the results with:
+
+    <?php
+      foreach ($result['Contacts']['Contact'] as $contact) {
+        //Do something
+      }
+    ?>
+
+  2 Caching Data 
+
+    The Xero API for Drupal will keep a cache of objects if you use
+    the xero_get_cache method. This is a simple way of grabbing all
+    Contacts, Accounts, etc... that may be frequently used in forms.
+
+    <?php
+      $contacts = xero_get_cache('Contacts');
+    ?>
+
+    Note: at this time it is not possible to send in filtering.
+
+  3 Posting
+
+    You may also post data with the xero_query method.
+
+    <?php
+      $new = array(
+        'Contact' => array(
+          'Name' => 'Test Contact',
+        ),
+      );
+
+      $result = xero_query('post', 'Contacts', FALSE, FALSE, $new);
+    ?>
+
+    The third and fourth arguments are not used.
+    The fifth argument is now a valid array for the action we're
+    doing. In this case, Contacts.
+
+    You can find more information on the necessary elements to
+    post new objects for an action on the xero.com developer site.
+
+    You may also modify an existing item by passing the appropriate
+    identifier as part of the array structure. You do not need to 
+    specify every element as elements not specified will remain the
+    same.
+
+    <?php
+      $contact = xero_query('get', 'Contacts', FALSE, FALSE, array('Name' => 'Test Contact'));
+      $updated = array(
+        'Contact' => array(
+          'ContactID' => $contact['Contacts']['Contact']['ContactID'],
+          'Name' => 'New Name For Test Contact',
+        ),
+      );
+      $result = xero_query('post', 'Contacts', FALSE, FALSE, $updated);
+    ?>
+
+    Note that at times data may not be modifiable, but the code here
+    will always try to post.
+
+II Form Helper
+
+  The xero_form_helper method constructs Drupal Form API elements for
+  various often-used items such as Contacts, Invoices, Accounts, and
+  other goodies. These will use the xero_get_cache method described
+  above.
+
+  <?php
+    //An autocomplete textfield for contacts.
+    $form['ContactID'] = xero_form_helper('Contacts', $default_value);
+  ?>
+
+  Note that at this time it is not possible to pass in filters for
+  xero_form_helper as it uses xero_get_cache.
+
+III Theming Data
+
+  Although you're probably using Xero you may want to display data
+  such as contacts, invoices, and credit notes. These php templates
+  also use theme functions for line items and addresses respectively.
+
+  <?php
+    $output = theme('xero_contact', $contact);
+  ?> 
+
+IV PHP-Xero Library
+
+  You may bypass all of the above and use the PHP-Xero library
+  directly by using the php_xero_load method.
+
+  <?php
+    //returns a valid PHP-Xero object
+    $xero = php_xero_load();
+
+    $contacts = $xero->Contacts;
+
+    $new = array(
+      'Contact' => array(
+        'Name' => 'New Contact',
+      ),
+    );
+
+    $result = $xero->Contacts($new);
+  ?>

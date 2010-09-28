@@ -1,0 +1,5 @@
+name = Xero
+description = Provides third-party integration with xero.com accounting services.
+package = Xero
+core = 6.x
+php = 5.x

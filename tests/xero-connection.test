@@ -1,0 +1,65 @@
+<?php
+//$Id$
+
+/**
+ * @file 
+ *   Xero API module tests
+ *
+ *   The tests here will not pass PIFR because testing.drupal.org does
+ *   not have a private application for Xero. These tests are for your
+ *   site itself to make sure that the module and library are working
+ *   properly.
+ */
+
+
+/**
+ * @class
+ * Connection and requirements testing for Xero API
+ *
+ * Tests:
+ *   1. Test that your site meets the requirements for the module.
+ *   2. Test that the module can actually make a connection to Xero.
+ */
+class XeroConnectionTest extends DrupalUnitTestCase {
+
+  /**
+   * Implementation of getInfo() method
+   * @return array 
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Xero Connection Tests'),
+      'description' => t('Executes functional connection tests using the unit test class.'),
+      'group' => t('Xero'),
+    );
+  }
+
+  public function testXeroRequirements() {
+   //We need to load the install file
+   require_once './includes/install.inc';
+   module_load_include('install', 'xero', 'xero');
+
+   $key = variable_get('xero_consumer_key', '');
+   $secret = variable_get('xero_consumer_secret', '');
+   $requirements = module_invoke('xero', 'requirements', 'runtime');
+
+   // title is already passed through t()
+   foreach ($requirements as $key => $requirement) {
+     $this->assertNotEqual($requirement['severity'], REQUIREMENT_ERROR, t('Requirement passed: !title', array('!title' => $requirement['title'])));
+   }
+
+   $this->assertNotEqual($key, '', t('Xero Consumer Key is not empty.'));
+   $this->assertNotEqual($secret, '', t('Xero Consumer Secret is not empty.'));
+  }
+
+  public function testXeroConnection() {
+    $xero = xero_php_load();
+
+    $this->assertNotNull($xero, t('Sucessfully initialized the PHP-Xero library.'));
+
+    $result = $xero->Accounts;
+
+    $this->assertNotNull($result['Accounts']['Account'][0]['Name'], t('Successfully queried xero for accounts. Found an account named @name', array('@name' => $result['Accounts']['Account'][0]['Name'])));
+  }
+
+}

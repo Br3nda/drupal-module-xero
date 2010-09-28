@@ -1,0 +1,424 @@
+<?php
+//$Id$
+
+/**
+ * @file 
+ *   Xero Validation Test Framework
+ *
+ * The following class provides assertions to validate
+ * various data that you want to pass into Xero.
+ *
+ * assertValidContact
+ *   assertValidAddress
+ *   assertValidPhone
+ * assertValidPayment
+ * assertValidInvoice
+ *   assertValidLineItem
+ * assertValidCreditNote
+ *   assertValidLineItem
+ *  
+ */
+
+
+/**
+ * @class
+ * Validation assertions for Xero data
+ *
+ */
+class XeroValidateTest extends DrupalUnitTestCase {
+
+  /**
+   * Implementation of getInfo() method
+   * @return array 
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Xero Validation Tests'),
+      'description' => t('Does not include any tests.'),
+      'group' => t('Xero'),
+    );
+  }
+
+
+  // return $this->assert(!$value, $message ? $message : t('Value is FALSE'), $group);
+
+  /**
+   * Assert a valid address data set
+   * @param $address an address data set.
+   * @return return value from assert()
+   */
+  public static function assertValidAddress($addresses = array()) {
+
+    if (empty($addresses['Address'])) {
+      return $this->assert(FALSE, t('Addresses must contain a valid array.'), PHP);
+    }
+
+    $lines = array(
+      'AddressType' => 0,
+      'AddressLine' => 0,
+      'City' => 0,
+      'Region' => 0,
+      'PostalCode' => 0,
+      'Country' => 0,
+    );
+
+    //Loop through the address array
+    foreach ($addresses['Address'] as $address) {
+      if (empty($address)) {
+        return $this->assert(FALSE, t('Address element is not empty.'), 'PHP');
+      }
+      //Loop through each line in each address array.
+      foreach ($address as $line => $val) {
+
+        if (substr($line, 0, 11) == 'AddressLine' && $lines[$line] > 3) {
+          return $this->assert(FALSE, t('There are one to four address lines.'), 'PHP');
+        }
+        else if ($line == 'AddressType' && (!($val == 'POBOX' || $val == 'STREET') || $lines[$line] > 0)) {
+          return $this->assert(FALSE, t('Address type is either POBOX or STREET.'), 'PHP');
+        }
+        else if (!isset($lines[$line])) {
+          return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+        }
+        else if ($line <> 'AddressLine' && $lines[$line] > 0) {
+          return $this->assert(FALSE, t('Element, %element, occurs once.', array('%element' => $line)), 'PHP');
+        }
+        else {
+          $lines[$line]++;
+        }
+      }
+    }
+
+    return $this->assert(TRUE, t('Found a valid Address data set.'), 'PHP');
+  }
+
+  /**
+   * Assert valid phones data set
+   * @param $phones a phones data set.
+   * @return return value from assert()
+   */
+   public static function assertValidPhone($phones = array()) {
+
+     if (empty($phones['Phone'])) {
+       return $this->assert(FALSE, t('Phones element is not empty.'), 'PHP');
+     }
+
+     $lines = array(
+       'PhoneType' => 0,
+       'PhoneNumber' => 0,
+       'PhoneAreaCode' => 0,
+       'PhoneCountryCode' => 0,
+     );
+
+     $types = array(
+       'DEFAULT' => 0,
+       'DDI' => 0,
+       'MOBILE' => 0,
+       'FAX' => 0,
+     );
+
+     foreach ($phones['Phone'] as $phone) {
+       if (empty($phone)) {
+         return $this->assert(FALSE, t('Phone element is not empty.'), 'PHP');
+       }
+
+       foreach ($phone as $line => $val) {
+         if ($line == 'PhoneType' && (!isset($types[$val]) || $lines[$line] > 0)) {
+           return $this->assert(FALSE, t('Phone number is a valid type: %type', array('%type' => $types[$val])), 'PHP');
+         }
+         else if(!isset($lines[$line]) || $lines[$line] > 0) {
+           return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+         }
+         else {
+           $lines[$line]++;
+         }
+       }
+     }
+
+     return $this->assert(TRUE, t('Found a valid Phones data set.'), 'PHP');
+   }
+
+   /**
+    * Assert a valid Xero Contact data set
+    * @param $contact One xero contact array with starting element Contact, not Contacts
+    * @param return value from assert()
+    */
+   public static function assertValidContact($contact = array()) {
+
+     if (!isset($contact['Contact'])) {
+       return $this->assert(FALSE, t('Contacts element is not empty.'), 'PHP');
+     }
+
+     //Contact Name is the only required field
+     if (!isset($contact['Contact']['Name'])) {
+       return $this->assert(FALSE, t('Has required Name field.'), 'PHP');
+     }
+
+     //Assert valid addresses
+     if (!isset($contact['Contact']['Addresses'])) {
+       if (! $this->assertValidAddress($contact['Contact']['Addresses'])) {
+         return $this->assert(FALSE, t('Contact has addresses that are valid.'), 'PHP');
+       }
+     }
+
+     //Assert valid phones
+     if (!isset($contact['Contact']['Phones'])) {
+       if (! $this->assertValidPhone($contact['Contact']['Phones'])) {
+         return $this->assert(FALSE, t('Contact has phones that are valid.'), 'PHP');
+       }
+     }
+
+     //Assert valid Contact groups?
+     //Assert valid Tax Type?
+     //Assert valid Currency?
+
+     $lines = array(
+       'ContactStatus' => 0,
+       'Name' => 0,
+       'FirstName' => 0,
+       'LastName' => 0,
+       'EmailAddress' => 0,
+       'Addresses' => 0,
+       'Phones' => 0,
+       'BankAccountDetails' => 0,
+       'TaxNumber' => 0,
+       'IsSupplier' => 0,
+       'IsCustomer' => 0,
+       'ContactGroups' => 0,
+       'DefaultCurrency' => 0,
+       'AccountsReceivableTaxType' => 0,
+       'AccountsPayableTaxType' => 0,
+     );
+
+     //Only Name is required, see above, so we just want
+     //invalid array keys.
+     foreach ($contact['Contact'] as $line => $val) {
+       if (!isset($lines[$line]) || $lines[$line] > 0) {
+         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+       }
+       else {
+         $lines[$line]++;
+       }
+     }
+
+     return $this->assert(TRUE, t('Found a valid Contact data set.'), 'PHP');
+   }
+
+   /**
+    * Assert a valid line item
+    * @param $items a line item data set.
+    * @return return value from assert().
+    */
+   public static function assertValidLineItem($items = array()) {
+     if (empty($items['LineItem'])) {
+       return $this->assert(FALSE, t('LineItems contains a valid line item array.'), 'PHP');
+     }
+
+     $lines = array(
+       'Description' => 0,
+       'Quantity' => 0,
+       'UnitAmount' => 0,
+       'AccountCode' => 0,
+       'TaxType' => 0,
+       'TaxAmount' => 0,
+       'LineAmount' => 0,
+       'Tracking' => 0,
+     );
+
+     foreach ($items['LineItem'] as $item) {
+       if (empty($item)) {
+         return $this->assert(FALSE, t('LineItem is not an empty array.'), 'PHP');
+       }
+       foreach ($item as $line => $val) {
+         if (!isset($lines[$line]) || $lines[$line] > 0) {
+           return $this->assert(FALSE, t('%line is a valid type for line items.', array('%line' => $line)), 'PHP');
+         }
+         else {
+           $lines[$line]++;
+         }
+       }
+     }
+
+     //Test optional tracking elements?
+
+     return $this->assert(TRUE, t('Found a valid Line Item data set.'), 'PHP');
+   }
+
+   /**
+    * Assert a valid payment data set
+    * @param $payments a payments data set
+    * @return return value from assert().
+    */
+   public static function assertValidPayment($payments = array()) {
+     if (empty($payments['Payment'])) {
+       return $this->assert(FALSE, t('Payments contains a valid Payment array.'), 'PHP');
+     }
+
+     $lines = array(
+       'Invoice' => 0,
+       'Account' => 0,
+       'Date' => 0,
+       'Amount' => 0,
+     );
+
+     foreach ($payments['Payment'] as $payment) {
+       if (empty($payment)) {
+         return $this->assert(FALSE, t('Payment is not an empty array.'), 'PHP');
+       }
+       foreach ($payment as $line => $val) {
+         if (!isset($lines[$line]) || $lines[$line] > 0) {
+           return $this->assert(FALSE, t('%line is a valid type for a payment.', array('%line' => $line)), 'PHP');
+         }
+         else {
+           $lines[$line]++;
+         }
+       }
+
+       if (!isset($payment['Account']['AccountID']) && !isset($payment['Account']['Code'])) {
+         return $this->assert(FALSE, t('Payment has a valid account type.'), 'PHP');
+       }
+
+       if (!isset($payment['Invoice']['InvoiceID']) && !isset($payment['Invoice']['InvoiceNumber'])) {
+         return $this->assert(FALSE, t('Payment has a valid invoice type.'), 'PHP');
+       }
+     }
+
+     return $this->assert(TRUE, t('Found a valid payment data set.'), 'PHP');
+   }
+
+   /**
+    * Assert a valid Invoice data set.
+    * @param $invoice an invoice data set.
+    * @return return value from assert().
+    */
+   public static function assertValidInvoice($invoice = array()) {
+     if (empty($invoice['Invoice'])) {
+       return $this->assert(FALSE, t('Invoice contains a valid Invoice array.'), 'PHP');
+     }
+
+     //Type is mandatory
+     $types = array('ACCREC' => 0, 'ACCPAY' => 0);
+     if (empty($invoice['Invoice']['Type']) || !isset($types[$invoice['Invoice']['Type']])) {
+       return $this->assert(FALSE, t('Invoice has a valid type: %type', array('%type' => empty($invoice['Invoice']['Type']) ? 'NULL' : $invoice['Invoice']['Type'])), 'PHP');
+     }
+
+     //Contact is mandatory
+     if ((empty($invoice['Invoice']['Contact'])) || (empty($invoice['Invoice']['Contact']['Name']) && empty($invoice['Invoice']['Contact']['ContactID']))) {
+       return $this->assert(FALSE, t('Invoice has a Contact associated with it.'), 'PHP');
+     }
+
+     $lines = array(
+       'Type' => 0,
+       'Contact' => 0,
+       'Date' => 0,
+       'DueDate' => 0,
+       'LineAmountTypes' => 0,
+       'LineItems' => 0,
+       'InvoiceNumber' => 0,
+       'Reference' => 0,
+       'CurrencyCode' => 0,
+       'Status' => 0,
+       'SubTotal' => 0,
+       'TotalTax' => 0,
+       'Total' => 0,
+     );
+
+     foreach ($invoice['Invoice'] as $line => $val) {
+       if (!isset($lines[$line]) || $lines[$line] > 0) {
+         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+       }
+       else {
+         $lines[$line]++;
+       }
+     }
+
+     //If we have line items then validate them.
+     if (!empty($invoice['Invoice']['LineItems'])) {
+       if(! $this->assertValidLineItem($invoice['Invoice']['LineItems'])) {
+         return $this->assert(FALSE, t('Found a valid Invoice data set.'), 'PHP');
+       }
+     }
+
+     //Assert LineAmountTypes one of three values.
+     $type = $invoice['Invoice']['LineAmountTypes'];
+     if (! ($type == 'Exclusive' || $type == 'Inclusive' || $type == 'NoTax')) {
+       return $this->assert(FALSE, t('Line Amount Type, %type, is valid.', array('%type' => $type)), 'PHP');
+     }
+
+     //Assert Status is DRAFT or SUBMITTED for posting.
+     $status = $invoice['Invoice']['Status'];
+     if (! ($status == 'DRAFT' || $status == 'SUBMITTED')) {
+       return $this->assert(FALSE, t('Status, %status, is valid.', array('%status' => $status)), 'PHP');
+     }
+
+     return $this->assert(TRUE, t('Found a valid Invoice data set.'), 'PHP');
+   }
+
+   /**
+    * Assert a valid Credit Note data set.
+    * @param $cn a credit note data set.
+    * @return return value from assert().
+    */
+   public static function assertValidCreditNote($cn = array()) {
+     if (empty($cn['CreditNote'])) {
+       return $this->assert(FALSE, t('Credit Note contains a valid CreditNote array.'), 'PHP');
+     }
+
+     //Type is mandatory
+     $types = array('ACCRECCREDIT' => 0, 'ACCPAYCREDIT' => 0);
+     if (empty($cn['CreditNote']['Type']) || !isset($types[$cn['CreditNote']['Type']])) {
+       return $this->assert(FALSE, t('Credit Note has a valid type: %type', array('%type' => empty($cn['CreditNote']['Type']) ? 'NULL' : $cn['CreditNote']['Type'])), 'PHP');
+     }
+
+     //Contact is mandatory
+     if ((empty($cn['CreditNote']['Contact'])) || (empty($cn['CreditNote']['Contact']['Name']) && empty($cn['CreditNote']['Contact']['ContactID']))) {
+       return $this->assert(FALSE, t('Credit Note has a Contact associated with it.'), 'PHP');
+     }
+
+     $lines = array(
+       'Type' => 0,
+       'Contact' => 0,
+       'Date' => 0,
+       'DueDate' => 0,
+       'LineAmountTypes' => 0,
+       'LineItems' => 0,
+       'CreditNoteNumber' => 0,
+       'Reference' => 0,
+       'CurrencyCode' => 0,
+       'Status' => 0,
+       'SubTotal' => 0,
+       'TotalTax' => 0,
+       'Total' => 0,
+     );
+
+     foreach ($cn['CreditNote'] as $line => $val) {
+       if (!isset($lines[$line]) || $lines[$line] > 0) {
+         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+       }
+       else {
+         $lines[$line]++;
+       }
+     }
+
+     //If we have line items then validate them.
+     if (!empty($cn['CreditNote']['LineItems'])) {
+       if(! $this->assertValidLineItem($cn['CreditNote']['LineItems'])) {
+         return $this->assert(FALSE, t('Found a valid Credit Note data set.'), 'PHP');
+       }
+     }
+
+     //Assert LineAmountTypes one of three values.
+     $type = $cn['CreditNote']['LineAmountTypes'];
+     if (! ($type == 'Exclusive' || $type == 'Inclusive' || $type == 'NoTax')) {
+       return $this->assert(FALSE, t('Line Amount Type, %type, is valid.', array('%type' => $type)), 'PHP');
+     }
+
+     //Assert Status is DRAFT or SUBMITTED for posting.
+     $status = $cn['CreditNote']['Status'];
+     if (! ($status == 'DRAFT' || $status == 'SUBMITTED')) {
+       return $this->assert(FALSE, t('Status, %status, is valid.', array('%status' => $status)), 'PHP');
+     }
+
+     return $this->assert(TRUE, t('Found a valid Credit Note data set.'), 'PHP');
+   }
+}
+
