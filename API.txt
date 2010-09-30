@@ -65,11 +65,7 @@ I Queries
     You may also post data with the xero_query method.
 
     <?php
-      $new = array(
-        'Contact' => array(
-          'Name' => 'Test Contact',
-        ),
-      );
+      $new = xero_make('contact', 'minimal');
 
       $result = xero_query('post', 'Contacts', FALSE, FALSE, $new);
     ?>
@@ -115,7 +111,65 @@ II Form Helper
   Note that at this time it is not possible to pass in filters for
   xero_form_helper as it uses xero_get_cache.
 
-III Theming Data
+III Xero Make
+
+  The xero_make method constructs an empty, but valid data structure
+  for a specified data type.
+
+  <?php
+    $contact = xero_make('contact', 'minimal');
+  ?>
+
+  The first argument is a valid type as defined by hook_xero_make_info().
+  By default, the module includes contact, invoice, lineitem, address,
+  phone, and creditnote.
+  The second argument specifies the size of the data structure in
+  reference to the mandatory (minimal), recommended, and optional (all)
+  constraints for a data type. Not all data types use all sizes.
+  Additional arguments can be passed in via an arguments array().
+
+  <?php
+    $invoice = xero_make('invoice', 'recommended', array('name', 2));
+  ?>
+
+  In this example the arguments array contains two arguments, which
+  correspond to the arguments of xero_make_invoice. The return value 
+  will look like this. Note that 'recommended' is also passed into
+  xero_make_lineitem, which is called directly from xero_make_invoice.
+
+  <?php
+  $invoice = array(
+    'Invoice' => array(
+      'Type' => '',
+      'Contact' => array(
+        'Name' => '',
+      ),
+      'Date' => '',
+      'DueDate' => '',
+      'LineAmountTypes' => '',
+      'LineItems' => array(
+        0 => array(
+          'LineItem' => array(
+            'Description' => '',
+            'Quantity' => '',
+            'UnitAmount' => '',
+            'AccountCode' => '',
+          ),
+        ),
+        1 => array(
+          'LineItem' => array(
+            'Description' => '',
+            'Quantity' => '',
+            'UnitAmount' => '',
+            'AccountCode' => '',
+          ),
+        ),
+      ),
+    ),
+  );
+  ?>
+
+IV Theming Data
 
   Although you're probably using Xero you may want to display data
   such as contacts, invoices, and credit notes. These php templates
@@ -125,7 +179,7 @@ III Theming Data
     $output = theme('xero_contact', $contact);
   ?> 
 
-IV PHP-Xero Library
+V PHP-Xero Library
 
   You may bypass all of the above and use the PHP-Xero library
   directly by using the php_xero_load method.
