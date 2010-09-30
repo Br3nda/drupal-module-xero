@@ -47,8 +47,6 @@ class XeroValidateTest extends DrupalUnitTestCase {
   }
 
   function setUp() {
-    parent::setUp();
-
     $path = getcwd() . '/sites/all/modules/xero';
     $include = $path . '/xero.make.inc';
 
