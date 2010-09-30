@@ -1,0 +1,9 @@
+name = Ubercart Xero Example
+description = Post invoices of orders to Xero. This is an example module.
+core = 6.x
+php = 5.x
+package = Xero
+dependencies[] = uc_order
+dependencies[] = xero
+
+;$Id$

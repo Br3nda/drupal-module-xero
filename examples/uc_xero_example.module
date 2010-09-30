@@ -1,0 +1,48 @@
+<?php
+//$Id$
+
+/**
+ * @file
+ * An example module of how to post an invoice from an ubercart order
+ * with line items. This doesn't do very much error checking to see
+ * if the invoice might already exist, and can be improved greatly.
+ * Not to be used with production sites.
+ */
+
+
+/**
+ * Implementation of hook_order().
+ */
+function uc_xero_example_order($op, &$order, $status) {
+  if ($op == 'update') {
+    if ($status == 'pending') {
+
+      $invoice = xero_make('invoice', 'recommended', array('name', count($order->products)));
+
+      $buyer = user_load($order->uid);
+
+      $invoice['Invoice']['Contact']['Name'] = $buyer->name;
+      $invoice['Invoice']['Contact']['EmailAddress'] = $buyer->mail;
+      $invoice['Invoice']['Type'] = 'ACCREC';
+      $invoice['Invoice']['Date'] = date('Y-m-d');
+      $invoice['Invoice']['DueDate'] = date('Y-m-d', time()+1296000); //NET15
+      $invoice['Invoice']['LineAmountTypes'] = 'NoTax';
+      $invoice['Invoice']['Status'] = 'SUBMITTED';
+      $invoice['Invoice']['Reference'] = 'ORDER-' . $order->order_id;
+
+      $i = 0;
+      $subtotal = 0;
+      foreach ($order->products as $key => $item) {
+        $node = node_load($item->nid);
+        $invoice['Invoice']['LineItems'][$i]['LineItem']['Description'] = check_plain($node->title);
+        $invoice['Invoice']['LineItems'][$i]['LineItem']['Quantity'] = $item->qty;
+        $invoice['Invoice']['LineItems'][$i]['LineItem']['UnitAmount'] = $item->price;
+        $invoice['Invoice']['LineItems'][$i]['LineItem']['AccountCode'] = 200;
+        $i++;
+        $subtotal = $subtotal + $item->price;
+      }
+
+      $result = xero_query('post', 'Invoices', FALSE, FALSE, $invoice);
+    }
+  }
+}
