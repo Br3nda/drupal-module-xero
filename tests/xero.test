@@ -5,17 +5,24 @@
  * @file 
  *   Xero Validation Test Framework
  *
+ * The following tests have been created:
+ *
+ * - testContact
+ * - testPayment
+ * - testInvoice
+ *
+ *
  * The following class provides assertions to validate
  * various data that you want to pass into Xero.
  *
- * assertValidContact
- *   assertValidAddress
- *   assertValidPhone
- * assertValidPayment
- * assertValidInvoice
- *   assertValidLineItem
- * assertValidCreditNote
- *   assertValidLineItem
+ * - assertValidContact
+ *  - assertValidAddress
+ *  - assertValidPhone
+ * - assertValidPayment
+ * - assertValidInvoice
+ *  - assertValidLineItem
+ * - assertValidCreditNote
+ *  - assertValidLineItem
  *  
  */
 
@@ -31,26 +38,120 @@ class XeroValidateTest extends DrupalUnitTestCase {
    * Implementation of getInfo() method
    * @return array 
    */
-  public static function getInfo() {
+  function getInfo() {
     return array(
       'name' => t('Xero Validation Tests'),
-      'description' => t('Does not include any tests.'),
+      'description' => t('Validate data structures returned by xero_make functions.'),
       'group' => t('Xero'),
     );
   }
 
+  function setUp() {
+    parent::setUp();
 
-  // return $this->assert(!$value, $message ? $message : t('Value is FALSE'), $group);
+    $path = getcwd() . '/sites/all/modules/xero';
+    $include = $path . '/xero.make.inc';
+
+    if (file_exists($include)) {
+      include_once($include);
+      $this->assertTrue(TRUE, t('Included %file',  array('%file' => $include)));
+    }
+    else {
+      $this->assertTrue(FALSE, t('Included %file', array('%file' => $include)));
+      return;
+    }
+  }
+
+  /**
+   * Test a contact data structure.
+   */
+  function testContact() {    
+    //Test a minimal contact
+    $minimal = xero_make_contact('minimal');
+
+    $this->assert($this->assertValidContact($minimal), t('xero_make_contact created a valid contact structure containing <em>minimal</em> elements..'));
+
+    //Test all values with addresses and phones.
+    $all = xero_make_contact('all', 1, 1);
+    $all['Contact']['Addresses'][0]['Address']['AddressType'] = 'STREET';
+    $all['Contact']['Phones'][0]['Phone']['PhoneType'] = 'DEFAULT';
+
+    $this->assert($this->assertValidContact($all), t('xero_make_contact created a valid contact structure containing <em>all</em> elements.'));
+  }
+  
+  /**
+   * Test making a payment.
+   */
+  function testPayment() {
+    $pay = xero_make_payment('minimal', 'id', 'id');
+    $this->assert($this->assertValidPayment($pay), t('xero_make_payment created a valid payment structure with account and invoice id elements.'));
+
+    $pay = xero_make_payment('minimal', 'number', 'code');
+    $this->assert($this->assertValidPayment($pay), t('xero_make_payment created a valid payment structure with account code and invoice number elements.'));
+
+  }
+
+  /**
+   * Test making invoices
+   */
+  function testInvoice() {
+    $min = xero_make_invoice('minimal');
+    $min['Invoice']['Type'] = 'ACCREC';
+    $min['Invoice']['Contact']['Name'] = $this->randomName(32);
+
+    $this->assert($this->assertValidInvoice($min), t('xero_make_invoice created a valid invoice structure with <em>minimal</em> elements.'));
+
+    $rec = xero_make_invoice('recommended', 'name', 2);
+    $rec['Invoice']['Contact']['Name'] = $this->randomName(32);
+    $rec['Invoice']['Type'] = 'ACCREC';
+    $rec['Invoice']['LineAmountTypes'] = 'NoTax';
+
+    $this->assert($this->assertValidInvoice($rec), t('xero_make_invoice created a valid invoice structure with <em>recommended</em> elements.'));
+
+    $all = xero_make_invoice('all', 'name', 2);
+    $all['Invoice']['Contact']['Name'] = $this->randomName(32);
+    $all['Invoice']['Type'] = 'ACCPAY';
+    $all['Invoice']['LineAmountTypes'] = 'Exclusive';
+    $all['Invoice']['Status'] = 'DRAFT';
+
+    $this->assert($this->assertValidInvoice($all), t('xero_make_invoice created a valid invoice structure with <em>all</em> elements.'));
+  }
+
+  /**
+   * Test valid credit notes.
+   */
+  function testCreditNote() {
+    $min = xero_make_creditnote('minimal', 'name');
+    $min['CreditNote']['Contact']['Name'] = $this->randomName(32);
+    $min['CreditNote']['Type'] = 'ACCRECCREDIT';
+
+    $this->assert($this->assertValidCreditNote($min), t('xero_make_creditnote created a valid credit note structure with <em>minimal</em> elements.'));
+
+    $rec = xero_make_creditnote('recommended', 'name', 2);
+    $rec['CreditNote']['Contact']['Name'] = $this->randomName(32);
+    $rec['CreditNote']['Type'] = 'ACCRECCREDIT';
+    $rec['CreditNote']['LineAmountTypes'] = 'NoTax';
+
+    $this->assert($this->assertValidCreditNote($rec), t('xero_make_creditnote created a valid credit note structure with <em>recommended</em> elements.'));
+
+    $all = xero_make_creditnote('all', 'name', 2);
+    $all['CreditNote']['Contact']['Name'] = $this->randomName(32);
+    $all['CreditNote']['Type'] = 'ACCRECCREDIT';
+    $all['CreditNote']['LineAmountTypes'] = 'Exclusive';
+    $all['CreditNote']['Status'] = 'DRAFT';
+
+    $this->assert($this->assertValidCreditNote($all), t('xero_make_creditnote created a valid credit note structure with <em>all</em> elements.'));
+  }
 
   /**
    * Assert a valid address data set
    * @param $address an address data set.
    * @return return value from assert()
    */
-  public static function assertValidAddress($addresses = array()) {
+  function assertValidAddress($addresses = array()) {
 
-    if (empty($addresses['Address'])) {
-      return $this->assert(FALSE, t('Addresses must contain a valid array.'), PHP);
+    if (empty($addresses)) {
+      return $this->assert(FALSE, t('Addresses must contain a valid array.'));
     }
 
     $lines = array(
@@ -59,28 +160,34 @@ class XeroValidateTest extends DrupalUnitTestCase {
       'City' => 0,
       'Region' => 0,
       'PostalCode' => 0,
-      'Country' => 0,
+      'CountryCode' => 0,
     );
 
     //Loop through the address array
-    foreach ($addresses['Address'] as $address) {
-      if (empty($address)) {
-        return $this->assert(FALSE, t('Address element is not empty.'), 'PHP');
+    foreach ($addresses as $address) {
+      if (empty($address['Address'])) {
+        return $this->assert(FALSE, t('Address element is not empty.'));
       }
       //Loop through each line in each address array.
-      foreach ($address as $line => $val) {
+      foreach ($address['Address'] as $line => $val) {
 
-        if (substr($line, 0, 11) == 'AddressLine' && $lines[$line] > 3) {
-          return $this->assert(FALSE, t('There are one to four address lines.'), 'PHP');
+        if (substr($line, 0, 11) == 'AddressLine') {
+          $num = substr($line, 11);
+          if (!is_numeric($num)) {
+            return $this->assert(FALSE, t('%num is an invalid Address Line number.', array('%num' => $num)));
+          }
+          if ($num > 4) {
+            return $this->assert(FALSE, t('%line is not a valid Address Line.', array('%line' => $line)));
+          }
         }
         else if ($line == 'AddressType' && (!($val == 'POBOX' || $val == 'STREET') || $lines[$line] > 0)) {
-          return $this->assert(FALSE, t('Address type is either POBOX or STREET.'), 'PHP');
+          return $this->assert(FALSE, t('Address type is either POBOX or STREET.'));
         }
         else if (!isset($lines[$line])) {
-          return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+          return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)));
         }
         else if ($line <> 'AddressLine' && $lines[$line] > 0) {
-          return $this->assert(FALSE, t('Element, %element, occurs once.', array('%element' => $line)), 'PHP');
+          return $this->assert(FALSE, t('Element, %element, occurs once.', array('%element' => $line)));
         }
         else {
           $lines[$line]++;
@@ -88,7 +195,7 @@ class XeroValidateTest extends DrupalUnitTestCase {
       }
     }
 
-    return $this->assert(TRUE, t('Found a valid Address data set.'), 'PHP');
+    return $this->assert(TRUE, t('Found a valid Address data set.'));
   }
 
   /**
@@ -96,10 +203,10 @@ class XeroValidateTest extends DrupalUnitTestCase {
    * @param $phones a phones data set.
    * @return return value from assert()
    */
-   public static function assertValidPhone($phones = array()) {
+   function assertValidPhone($phones = array()) {
 
-     if (empty($phones['Phone'])) {
-       return $this->assert(FALSE, t('Phones element is not empty.'), 'PHP');
+     if (empty($phones)) {
+       return $this->assert(FALSE, t('Phones element is not empty.'));
      }
 
      $lines = array(
@@ -116,17 +223,17 @@ class XeroValidateTest extends DrupalUnitTestCase {
        'FAX' => 0,
      );
 
-     foreach ($phones['Phone'] as $phone) {
+     foreach ($phones as $phone) {
        if (empty($phone)) {
-         return $this->assert(FALSE, t('Phone element is not empty.'), 'PHP');
+         return $this->assert(FALSE, t('Phone element is not empty.'));
        }
 
-       foreach ($phone as $line => $val) {
+       foreach ($phone['Phone'] as $line => $val) {
          if ($line == 'PhoneType' && (!isset($types[$val]) || $lines[$line] > 0)) {
-           return $this->assert(FALSE, t('Phone number is a valid type: %type', array('%type' => $types[$val])), 'PHP');
+           return $this->assert(FALSE, t('Phone number is a valid type: %type', array('%type' => $types[$val])));
          }
          else if(!isset($lines[$line]) || $lines[$line] > 0) {
-           return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+           return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)));
          }
          else {
            $lines[$line]++;
@@ -134,7 +241,7 @@ class XeroValidateTest extends DrupalUnitTestCase {
        }
      }
 
-     return $this->assert(TRUE, t('Found a valid Phones data set.'), 'PHP');
+     return $this->assert(TRUE, t('Found a valid Phones data set.'));
    }
 
    /**
@@ -142,28 +249,28 @@ class XeroValidateTest extends DrupalUnitTestCase {
     * @param $contact One xero contact array with starting element Contact, not Contacts
     * @param return value from assert()
     */
-   public static function assertValidContact($contact = array()) {
+   function assertValidContact($contact = array()) {
 
      if (!isset($contact['Contact'])) {
-       return $this->assert(FALSE, t('Contacts element is not empty.'), 'PHP');
+       return $this->assert(FALSE, t('Contacts element is not empty.'));
      }
 
      //Contact Name is the only required field
      if (!isset($contact['Contact']['Name'])) {
-       return $this->assert(FALSE, t('Has required Name field.'), 'PHP');
+       return $this->assert(FALSE, t('Has required Name field.'));
      }
 
      //Assert valid addresses
-     if (!isset($contact['Contact']['Addresses'])) {
+     if (!empty($contact['Contact']['Addresses'])) {
        if (! $this->assertValidAddress($contact['Contact']['Addresses'])) {
-         return $this->assert(FALSE, t('Contact has addresses that are valid.'), 'PHP');
+         return $this->assert(FALSE, t('Contact has addresses that are valid.'));
        }
      }
 
      //Assert valid phones
-     if (!isset($contact['Contact']['Phones'])) {
+     if (!empty($contact['Contact']['Phones'])) {
        if (! $this->assertValidPhone($contact['Contact']['Phones'])) {
-         return $this->assert(FALSE, t('Contact has phones that are valid.'), 'PHP');
+         return $this->assert(FALSE, t('Contact has phones that are valid.'));
        }
      }
 
@@ -193,14 +300,14 @@ class XeroValidateTest extends DrupalUnitTestCase {
      //invalid array keys.
      foreach ($contact['Contact'] as $line => $val) {
        if (!isset($lines[$line]) || $lines[$line] > 0) {
-         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)));
        }
        else {
          $lines[$line]++;
        }
      }
 
-     return $this->assert(TRUE, t('Found a valid Contact data set.'), 'PHP');
+     return $this->assert(TRUE, t('Found a valid Contact data set.'));
    }
 
    /**
@@ -208,9 +315,9 @@ class XeroValidateTest extends DrupalUnitTestCase {
     * @param $items a line item data set.
     * @return return value from assert().
     */
-   public static function assertValidLineItem($items = array()) {
-     if (empty($items['LineItem'])) {
-       return $this->assert(FALSE, t('LineItems contains a valid line item array.'), 'PHP');
+   function assertValidLineItem($items = array()) {
+     if (empty($items)) {
+       return $this->assert(FALSE, t('LineItems contains a valid line item array.'));
      }
 
      $lines = array(
@@ -224,13 +331,13 @@ class XeroValidateTest extends DrupalUnitTestCase {
        'Tracking' => 0,
      );
 
-     foreach ($items['LineItem'] as $item) {
-       if (empty($item)) {
-         return $this->assert(FALSE, t('LineItem is not an empty array.'), 'PHP');
+     foreach ($items as $item) {
+       if (empty($item['LineItem'])) {
+         return $this->assert(FALSE, t('LineItem is not an empty array.'));
        }
-       foreach ($item as $line => $val) {
-         if (!isset($lines[$line]) || $lines[$line] > 0) {
-           return $this->assert(FALSE, t('%line is a valid type for line items.', array('%line' => $line)), 'PHP');
+       foreach ($item['LineItem'] as $line => $val) {
+         if (!isset($lines[$line]) || $lines[$line] > count($items)) {
+           return $this->assert(FALSE, t('%line is a valid type for line items.', array('%line' => $line)));
          }
          else {
            $lines[$line]++;
@@ -240,17 +347,17 @@ class XeroValidateTest extends DrupalUnitTestCase {
 
      //Test optional tracking elements?
 
-     return $this->assert(TRUE, t('Found a valid Line Item data set.'), 'PHP');
+     return $this->assert(TRUE, t('Found a valid Line Item data set.'));
    }
 
    /**
     * Assert a valid payment data set
-    * @param $payments a payments data set
+    * @param $payment a payment data set
     * @return return value from assert().
     */
-   public static function assertValidPayment($payments = array()) {
-     if (empty($payments['Payment'])) {
-       return $this->assert(FALSE, t('Payments contains a valid Payment array.'), 'PHP');
+   function assertValidPayment($payment = array()) {
+     if (empty($payment['Payment'])) {
+       return $this->assert(FALSE, t('Payments contains a valid Payment array.'));
      }
 
      $lines = array(
@@ -260,29 +367,24 @@ class XeroValidateTest extends DrupalUnitTestCase {
        'Amount' => 0,
      );
 
-     foreach ($payments['Payment'] as $payment) {
-       if (empty($payment)) {
-         return $this->assert(FALSE, t('Payment is not an empty array.'), 'PHP');
+     foreach ($payment['Payment'] as $line => $val) {
+       if (!isset($lines[$line]) || $lines[$line] > 0) {
+         return $this->assert(FALSE, t('%line is a valid type for a payment.', array('%line' => $line)));
        }
-       foreach ($payment as $line => $val) {
-         if (!isset($lines[$line]) || $lines[$line] > 0) {
-           return $this->assert(FALSE, t('%line is a valid type for a payment.', array('%line' => $line)), 'PHP');
-         }
-         else {
-           $lines[$line]++;
-         }
-       }
-
-       if (!isset($payment['Account']['AccountID']) && !isset($payment['Account']['Code'])) {
-         return $this->assert(FALSE, t('Payment has a valid account type.'), 'PHP');
-       }
-
-       if (!isset($payment['Invoice']['InvoiceID']) && !isset($payment['Invoice']['InvoiceNumber'])) {
-         return $this->assert(FALSE, t('Payment has a valid invoice type.'), 'PHP');
+       else {
+         $lines[$line]++;
        }
      }
 
-     return $this->assert(TRUE, t('Found a valid payment data set.'), 'PHP');
+     if (!isset($payment['Payment']['Account']['AccountID']) && !isset($payment['Payment']['Account']['Code'])) {
+       return $this->assert(FALSE, t('Payment has a valid account type.'));
+     }
+
+     if (!isset($payment['Payment']['Invoice']['InvoiceID']) && !isset($payment['Payment']['Invoice']['InvoiceNumber'])) {
+       return $this->assert(FALSE, t('Payment has a valid invoice type.'));
+     }
+
+     return $this->assert(TRUE, t('Found a valid payment data set.'));
    }
 
    /**
@@ -290,20 +392,20 @@ class XeroValidateTest extends DrupalUnitTestCase {
     * @param $invoice an invoice data set.
     * @return return value from assert().
     */
-   public static function assertValidInvoice($invoice = array()) {
+   function assertValidInvoice($invoice = array()) {
      if (empty($invoice['Invoice'])) {
-       return $this->assert(FALSE, t('Invoice contains a valid Invoice array.'), 'PHP');
+       return $this->assert(FALSE, t('Invoice contains a valid Invoice array.'));
      }
 
      //Type is mandatory
      $types = array('ACCREC' => 0, 'ACCPAY' => 0);
      if (empty($invoice['Invoice']['Type']) || !isset($types[$invoice['Invoice']['Type']])) {
-       return $this->assert(FALSE, t('Invoice has a valid type: %type', array('%type' => empty($invoice['Invoice']['Type']) ? 'NULL' : $invoice['Invoice']['Type'])), 'PHP');
+       return $this->assert(FALSE, t('Invoice has a valid type: %type', array('%type' => empty($invoice['Invoice']['Type']) ? 'NULL' : $invoice['Invoice']['Type'])));
      }
 
      //Contact is mandatory
-     if ((empty($invoice['Invoice']['Contact'])) || (empty($invoice['Invoice']['Contact']['Name']) && empty($invoice['Invoice']['Contact']['ContactID']))) {
-       return $this->assert(FALSE, t('Invoice has a Contact associated with it.'), 'PHP');
+     if (empty($invoice['Invoice']['Contact']) || (empty($invoice['Invoice']['Contact']['Name']) && empty($invoice['Invoice']['Contact']['ContactID']))) {
+       return $this->assert(FALSE, t('Invoice has a Contact associated with it.'));
      }
 
      $lines = array(
@@ -324,7 +426,7 @@ class XeroValidateTest extends DrupalUnitTestCase {
 
      foreach ($invoice['Invoice'] as $line => $val) {
        if (!isset($lines[$line]) || $lines[$line] > 0) {
-         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)));
        }
        else {
          $lines[$line]++;
@@ -334,23 +436,27 @@ class XeroValidateTest extends DrupalUnitTestCase {
      //If we have line items then validate them.
      if (!empty($invoice['Invoice']['LineItems'])) {
        if(! $this->assertValidLineItem($invoice['Invoice']['LineItems'])) {
-         return $this->assert(FALSE, t('Found a valid Invoice data set.'), 'PHP');
+         return $this->assert(FALSE, t('Found a valid Invoice data set.'));
        }
      }
 
      //Assert LineAmountTypes one of three values.
-     $type = $invoice['Invoice']['LineAmountTypes'];
-     if (! ($type == 'Exclusive' || $type == 'Inclusive' || $type == 'NoTax')) {
-       return $this->assert(FALSE, t('Line Amount Type, %type, is valid.', array('%type' => $type)), 'PHP');
+     if (!empty($invoice['Invoice']['LineAmountTypes'])) {
+       $type = $invoice['Invoice']['LineAmountTypes'];
+       if (! ($type == 'Exclusive' || $type == 'Inclusive' || $type == 'NoTax')) {
+         return $this->assert(FALSE, t('Line Amount Type, %type, is valid.', array('%type' => $type)));
+       }
      }
 
      //Assert Status is DRAFT or SUBMITTED for posting.
-     $status = $invoice['Invoice']['Status'];
-     if (! ($status == 'DRAFT' || $status == 'SUBMITTED')) {
-       return $this->assert(FALSE, t('Status, %status, is valid.', array('%status' => $status)), 'PHP');
+     if (!empty($invoice['Invoice']['Status'])) {
+       $status = $invoice['Invoice']['Status'];
+       if (! ($status == 'DRAFT' || $status == 'SUBMITTED')) {
+         return $this->assert(FALSE, t('Status, %status, is valid.', array('%status' => $status)));
+       }
      }
 
-     return $this->assert(TRUE, t('Found a valid Invoice data set.'), 'PHP');
+     return $this->assert(TRUE, t('Found a valid Invoice data set.'));
    }
 
    /**
@@ -358,20 +464,20 @@ class XeroValidateTest extends DrupalUnitTestCase {
     * @param $cn a credit note data set.
     * @return return value from assert().
     */
-   public static function assertValidCreditNote($cn = array()) {
+   function assertValidCreditNote($cn = array()) {
      if (empty($cn['CreditNote'])) {
-       return $this->assert(FALSE, t('Credit Note contains a valid CreditNote array.'), 'PHP');
+       return $this->assert(FALSE, t('Credit Note contains a valid CreditNote array.'));
      }
 
      //Type is mandatory
      $types = array('ACCRECCREDIT' => 0, 'ACCPAYCREDIT' => 0);
      if (empty($cn['CreditNote']['Type']) || !isset($types[$cn['CreditNote']['Type']])) {
-       return $this->assert(FALSE, t('Credit Note has a valid type: %type', array('%type' => empty($cn['CreditNote']['Type']) ? 'NULL' : $cn['CreditNote']['Type'])), 'PHP');
+       return $this->assert(FALSE, t('Credit Note has a valid type: %type', array('%type' => empty($cn['CreditNote']['Type']) ? 'NULL' : $cn['CreditNote']['Type'])));
      }
 
      //Contact is mandatory
-     if ((empty($cn['CreditNote']['Contact'])) || (empty($cn['CreditNote']['Contact']['Name']) && empty($cn['CreditNote']['Contact']['ContactID']))) {
-       return $this->assert(FALSE, t('Credit Note has a Contact associated with it.'), 'PHP');
+     if (empty($cn['CreditNote']['Contact']) || (empty($cn['CreditNote']['Contact']['Name']) && empty($cn['CreditNote']['Contact']['ContactID']))) {
+       return $this->assert(FALSE, t('Credit Note has a Contact associated with it.'));
      }
 
      $lines = array(
@@ -392,7 +498,7 @@ class XeroValidateTest extends DrupalUnitTestCase {
 
      foreach ($cn['CreditNote'] as $line => $val) {
        if (!isset($lines[$line]) || $lines[$line] > 0) {
-         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)), 'PHP');
+         return $this->assert(FALSE, t('Element, %element, is valid.', array('%element' => $line)));
        }
        else {
          $lines[$line]++;
@@ -402,23 +508,27 @@ class XeroValidateTest extends DrupalUnitTestCase {
      //If we have line items then validate them.
      if (!empty($cn['CreditNote']['LineItems'])) {
        if(! $this->assertValidLineItem($cn['CreditNote']['LineItems'])) {
-         return $this->assert(FALSE, t('Found a valid Credit Note data set.'), 'PHP');
+         return $this->assert(FALSE, t('Found a valid Credit Note data set.'));
        }
      }
 
      //Assert LineAmountTypes one of three values.
-     $type = $cn['CreditNote']['LineAmountTypes'];
-     if (! ($type == 'Exclusive' || $type == 'Inclusive' || $type == 'NoTax')) {
-       return $this->assert(FALSE, t('Line Amount Type, %type, is valid.', array('%type' => $type)), 'PHP');
+     if (!empty($cn['CreditNote']['LineAmountTypes'])) {
+       $type = $cn['CreditNote']['LineAmountTypes'];
+       if (! ($type == 'Exclusive' || $type == 'Inclusive' || $type == 'NoTax')) {
+         return $this->assert(FALSE, t('Line Amount Type, %type, is valid.', array('%type' => $type)));
+       }
      }
 
      //Assert Status is DRAFT or SUBMITTED for posting.
-     $status = $cn['CreditNote']['Status'];
-     if (! ($status == 'DRAFT' || $status == 'SUBMITTED')) {
-       return $this->assert(FALSE, t('Status, %status, is valid.', array('%status' => $status)), 'PHP');
+     if (!empty($cn['CreditNote']['Status'])) {
+       $status = $cn['CreditNote']['Status'];
+       if (! ($status == 'DRAFT' || $status == 'SUBMITTED')) {
+         return $this->assert(FALSE, t('Status, %status, is valid.', array('%status' => $status)));
+       }
      }
 
-     return $this->assert(TRUE, t('Found a valid Credit Note data set.'), 'PHP');
+     return $this->assert(TRUE, t('Found a valid Credit Note data set.'));
    }
 }
 

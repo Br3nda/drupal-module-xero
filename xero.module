@@ -107,6 +107,39 @@ function xero_menu() {
 }
 
 /**
+ * Implementation of hook_xero_make_info().
+ * @return an array of keyed elemenst containing information about
+ * xero_make_TYPE to implement.
+ */
+function xero_xero_make_info() {
+  $path = drupal_get_path('module', 'xero') . '/xero.make.inc';
+
+  return array(
+    'contact' => array(
+      'file path' => $path,
+    ),
+    'invoice' => array(
+      'file path' => $path,
+    ),
+    'creditnote' => array(
+      'file path' => $path,
+    ),
+    'payment' => array(
+      'file path' => $path,
+    ),
+    'address' => array(
+      'file path' => $path,
+    ),
+    'phone' => array(
+      'file path' => $path,
+    ),
+    'lineitem' => array(
+      'file path' => $path,
+    ),
+  );
+}
+
+/**
  * Load PHP-Xero code. Only used by xero_query(). You don't need to
  * implement this unless you're making manual queries to xero outside
  * of xero_query().
@@ -341,3 +374,39 @@ function xero_get_cache($type = 'Contacts') {
   return $cached;
 }
 
+/**
+ * Xero make helper function. This will return a valid xero data structure
+ * with empty values for each key. This helper function will try to call a
+ * similarly named function based off of hook_xero_make_info(). Data
+ * structures created in this way are meant to be posted to xero.com, and
+ * should have their values replaced. This is up to the developer using
+ * xero_make().
+ * @param $type the data type to use such as 'contact'.
+ * @param $size the size of the data set to return. this can be anything that
+ * a xero_make_FUNCTION defines for itself. @see xero_make_invoice().
+ * @param $args any additional arguments to pass into the make function as an
+ * indexed array.
+ * @return a valid xero data structure or FALSE if we couldn't do it for some
+ * reason.
+ */
+function xero_make($type = 'contact', $size = 'minimal', $args = array()) {
+  if ($cached = cache_get('xero_make_registry', 'cache')) {
+    $info = $cached->data;
+    unset($cached);
+  }
+  else {
+    $info = module_invoke_all('xero_make_info');
+    //@todo alter?
+
+    cache_set('xero_make_registry', $info, 'cache', CACHE_TEMPORARY);
+  }
+
+  if (isset($info[$type]) && file_exists($info[$type]['file path'])) {
+    include_once($info[$type]['file path']);
+    $func = 'xero_make_' . $type;
+
+    return call_user_func_array($func, $size, $args);
+  }
+
+  return FALSE;
+}
