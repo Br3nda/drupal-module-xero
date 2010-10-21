@@ -303,8 +303,10 @@ function xero_form_helper($type = 'Contacts', $default = '') {
       $element[$key]['#options'] = array();
 
       foreach ($accounts['Account'] as $item) {
-        $name = $item['Code'];
-        $element[$key]['#options'][$name] = check_plain($item['Name']);
+        if (isset($item['Code'])) {
+          $name = $item['Code'];
+          $element[$key]['#options'][$name] = check_plain($item['Name']);
+        }
       }
       break;
     case 'Net':
@@ -405,7 +407,10 @@ function xero_make($type = 'contact', $size = 'minimal', $args = array()) {
     include_once($info[$type]['file path']);
     $func = 'xero_make_' . $type;
 
-    return call_user_func_array($func, $size, $args);
+    $func_args = array('minimal');
+    $func_args = array_merge($func_args, $args);
+
+    return call_user_func_array($func, $func_args);
   }
 
   return FALSE;
