@@ -47,17 +47,6 @@ class XeroValidateTest extends DrupalUnitTestCase {
   }
 
   function setUp() {
-    $path = getcwd() . '/sites/all/modules/xero';
-    $include = $path . '/xero.make.inc';
-
-    if (file_exists($include)) {
-      include_once($include);
-      $this->assertTrue(TRUE, t('Included %file',  array('%file' => $include)));
-    }
-    else {
-      $this->assertTrue(FALSE, t('Included %file', array('%file' => $include)));
-      return;
-    }
   }
 
   /**
@@ -65,12 +54,12 @@ class XeroValidateTest extends DrupalUnitTestCase {
    */
   function testContact() {    
     //Test a minimal contact
-    $minimal = xero_make_contact('minimal');
+    $minimal = xero_make('contact', 'minimal');
 
     $this->assert($this->assertValidContact($minimal), t('xero_make_contact created a valid contact structure containing <em>minimal</em> elements..'));
 
     //Test all values with addresses and phones.
-    $all = xero_make_contact('all', 1, 1);
+    $all = xero_make('contact', 'all', array(1, 1));
     $all['Contact']['Addresses'][0]['Address']['AddressType'] = 'STREET';
     $all['Contact']['Phones'][0]['Phone']['PhoneType'] = 'DEFAULT';
 
@@ -81,10 +70,10 @@ class XeroValidateTest extends DrupalUnitTestCase {
    * Test making a payment.
    */
   function testPayment() {
-    $pay = xero_make_payment('minimal', 'id', 'id');
+    $pay = xero_make('payment', 'minimal', array('id', 'id'));
     $this->assert($this->assertValidPayment($pay), t('xero_make_payment created a valid payment structure with account and invoice id elements.'));
 
-    $pay = xero_make_payment('minimal', 'number', 'code');
+    $pay = xero_make('payment', 'minimal', array('number', 'code'));
     $this->assert($this->assertValidPayment($pay), t('xero_make_payment created a valid payment structure with account code and invoice number elements.'));
 
   }
@@ -93,20 +82,20 @@ class XeroValidateTest extends DrupalUnitTestCase {
    * Test making invoices
    */
   function testInvoice() {
-    $min = xero_make_invoice('minimal');
+    $min = xero_make('invoice', 'minimal');
     $min['Invoice']['Type'] = 'ACCREC';
     $min['Invoice']['Contact']['Name'] = $this->randomName(32);
 
     $this->assert($this->assertValidInvoice($min), t('xero_make_invoice created a valid invoice structure with <em>minimal</em> elements.'));
 
-    $rec = xero_make_invoice('recommended', 'name', 2);
+    $rec = xero_make('invoice', 'recommended', array('name', 2));
     $rec['Invoice']['Contact']['Name'] = $this->randomName(32);
     $rec['Invoice']['Type'] = 'ACCREC';
     $rec['Invoice']['LineAmountTypes'] = 'NoTax';
 
     $this->assert($this->assertValidInvoice($rec), t('xero_make_invoice created a valid invoice structure with <em>recommended</em> elements.'));
 
-    $all = xero_make_invoice('all', 'name', 2);
+    $all = xero_make('invoice', 'all', array('name', 2));
     $all['Invoice']['Contact']['Name'] = $this->randomName(32);
     $all['Invoice']['Type'] = 'ACCPAY';
     $all['Invoice']['LineAmountTypes'] = 'Exclusive';
@@ -119,20 +108,20 @@ class XeroValidateTest extends DrupalUnitTestCase {
    * Test valid credit notes.
    */
   function testCreditNote() {
-    $min = xero_make_creditnote('minimal', 'name');
+    $min = xero_make('creditnote', 'minimal', array('name'));
     $min['CreditNote']['Contact']['Name'] = $this->randomName(32);
     $min['CreditNote']['Type'] = 'ACCRECCREDIT';
 
     $this->assert($this->assertValidCreditNote($min), t('xero_make_creditnote created a valid credit note structure with <em>minimal</em> elements.'));
 
-    $rec = xero_make_creditnote('recommended', 'name', 2);
+    $rec = xero_make('creditnote', 'recommended', array('name', 2));
     $rec['CreditNote']['Contact']['Name'] = $this->randomName(32);
     $rec['CreditNote']['Type'] = 'ACCRECCREDIT';
     $rec['CreditNote']['LineAmountTypes'] = 'NoTax';
 
     $this->assert($this->assertValidCreditNote($rec), t('xero_make_creditnote created a valid credit note structure with <em>recommended</em> elements.'));
 
-    $all = xero_make_creditnote('all', 'name', 2);
+    $all = xero_make('creditnote', 'all', array('name', 2));
     $all['CreditNote']['Contact']['Name'] = $this->randomName(32);
     $all['CreditNote']['Type'] = 'ACCRECCREDIT';
     $all['CreditNote']['LineAmountTypes'] = 'Exclusive';
