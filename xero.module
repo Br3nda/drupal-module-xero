@@ -243,17 +243,20 @@ function xero_form_helper($type = 'Contacts', $default = '') {
 
   switch ($type) {
     case 'Contacts':
+      $element[$key]['#description'] = t('Type in the name of the contact in Xero. An invalid Contact Name will not return a valid Xero Contact ID.');
       $element[$key]['#type'] = 'textfield';
       $element[$key]['#autocomplete_path'] = 'xero/autocomplete/Contacts';
       break;
     case 'ContactStatus':
       $element[$key]['#type'] = 'select';
       $element[$key]['#title'] = t('Contact Status');
+      $element[$key]['#description'] = t('Choose the status of the contact in Xero.');
       $element[$key]['#options'] = array('ACTIVE' => t('Active'));
       break;
     case 'PhoneType':
       $element[$key]['#type'] = 'select';
       $element[$key]['#title'] = t('Phone Type');
+      $element[$key]['#description'] = t('Choose the type of phone number.');
       $element[$key]['#options'] = array(
         'DEFAULT' => t('Default'),
         'DDI' => t('DDI'),
@@ -264,6 +267,7 @@ function xero_form_helper($type = 'Contacts', $default = '') {
     case 'AddressType':
       $element[$key]['#type'] = 'select';
       $element[$key]['#title'] = t('Address Type');
+      $element[$key]['#description'] = t('Choose the type of address.');
       $element[$key]['#options'] = array(
         'POBOX' => t('P.O. Box'),
         'STREET' => t('Street'),
@@ -271,6 +275,7 @@ function xero_form_helper($type = 'Contacts', $default = '') {
       break;
     case 'Invoices':
       $element[$key]['#type'] = 'textfield';
+      $element[$key]['#description'] = t('Type an Invoice Number to find an Invoice on Xero. Invalid Invoice Numbers will not return anything.');
       $element[$key]['#autocomplete_path'] = 'xero/autocomplete/Invoices';
       break;
     case 'InvoiceType':
@@ -282,7 +287,7 @@ function xero_form_helper($type = 'Contacts', $default = '') {
     case 'InvoiceStatus':
       $element[$key]['#type'] = 'select';
       $element[$key]['#title'] = t('Invoice Status');
-      $element[$key]['#description'] = t('You may post this invoice as a draft or as submitted.');
+      $element[$key]['#description'] = t('Choose the status of the invoice. Xero accepts only Draft or Submitted invoices when posting Invoices to Xero.');
       $element[$key]['#options'] = array(
         'DRAFT' => t('Draft'),
         'SUBMITTED' => t('Submitted'),
@@ -291,6 +296,7 @@ function xero_form_helper($type = 'Contacts', $default = '') {
     case 'LineAmountTypes':
       $element[$key]['#type'] = 'select';
       $element[$key]['#title'] = t('Line Amount Type');
+      $element[$key]['#description'] = t('Choose the Line Amount Type, which is whether line items are exclusive of tax or inclusive or tax, or have no tax at all.');
       $element[$key]['#options'] = array(
         'Exclusive' => t('Exclusive'),
         'Inclusive' => t('Inclusive'),
@@ -299,6 +305,7 @@ function xero_form_helper($type = 'Contacts', $default = '') {
       break;
     case 'Accounts':
       $accounts = xero_get_cache('Accounts');
+      $element[$key]['#description'] = t('Select an Account from a list of valid Xero accounts.');
       $element[$key]['#type'] = 'select';
       $element[$key]['#options'] = array();
 
@@ -312,6 +319,7 @@ function xero_form_helper($type = 'Contacts', $default = '') {
     case 'Net':
       $element[$key]['#type'] = 'select';
       $element[$key]['#title'] = t('Net Payable');
+      $element[$key]['#description'] = t('Choose Net Payable, which is the future date when an Invoice or Credit Note will be due.');
       $element[$key]['#options'] = array(
         '+0 days' => t('Immediate'),
         '+1 week' => t('Net 7'),
@@ -327,6 +335,7 @@ function xero_form_helper($type = 'Contacts', $default = '') {
       $currencies = xero_get_cache('Curriences');
       $element[$key]['#type'] = 'select';
       $element[$key]['#title'] = t('Currency');
+      $element[$key]['#description'] = t('Choose the currency to use.');
       $element[$key]['#options'] = array();
 
       foreach ($currencies['Currency'] as $item) {
@@ -336,6 +345,7 @@ function xero_form_helper($type = 'Contacts', $default = '') {
       break;
     case 'Date':
       //Modules not using date_api will need to format the date field appropriately.
+      $element[$key]['#description'] = t('Choose a date');
       $element[$key]['#type'] = (module_exists('date_api')) ? 'date_select' : 'date';
       $element[$key]['#date_format'] = 'Y-m-d';
       $element[$key]['#default_value'] = date();
