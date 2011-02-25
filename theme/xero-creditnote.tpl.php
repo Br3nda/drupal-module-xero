@@ -1,5 +1,4 @@
 <?php
-//$Id$
 
 /**
  * @file xero-creditnote.tpl.php

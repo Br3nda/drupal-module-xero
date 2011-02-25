@@ -6,4 +6,3 @@ package = Xero
 dependencies[] = uc_order
 dependencies[] = xero
 
-;$Id$

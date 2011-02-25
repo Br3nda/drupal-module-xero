@@ -1,4 +1,3 @@
-$Id$
 
 Xero API Examples
 
