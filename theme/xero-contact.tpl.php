@@ -1,5 +1,4 @@
 <?php
-//$Id$
 
 /**
  * @file xero-contact.tpl.php
