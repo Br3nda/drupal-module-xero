@@ -9,6 +9,10 @@
  */
 function xero_admin_settings() {
   $form = array();
+  $form['help'] = array(
+    '#type' => 'markup',
+    '#value' => '<p>'. t('You can create a "xero application" at !link', array('!link' => l(t('Xero'), 'https://api.xero.com/Application/Add'))) .'</p>'
+  );
 
   $form['xero_consumer_key'] = array(
     '#type' => 'textfield',
